@@ -1,0 +1,9 @@
+fastapi>=0.109.2
+uvicorn>=0.27.0
+transformers>=4.37.2
+torch>=2.2.0
+gTTS>=2.5.1
+pedalboard>=0.9.15
+python-multipart>=0.0.9
+pydantic>=2.5.3
+numpy>=1.26.0

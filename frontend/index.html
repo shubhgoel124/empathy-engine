@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Empathy Engine — AI Emotional Voice Synthesis</title>
+    <meta name="description" content="An AI-powered text-to-speech engine that detects emotions and dynamically modulates pitch, rate, and volume for human-like audio output.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <canvas id="particleCanvas"></canvas>
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
+    <div id="emojiExplosion" class="emoji-explosion"></div>
+
+    <main class="container">
+        <div class="glass-card">
+            <div class="card-shine"></div>
+
+            <header class="header">
+                <div class="logo-mark">
+                    <div class="pulse-ring"></div>
+                    <div class="pulse-ring delay"></div>
+                    <span class="logo-icon">🧠</span>
+                </div>
+                <h1>The Empathy Engine</h1>
+                <p class="subtitle">AI-powered emotional voice synthesis. Type anything — hear the feeling.</p>
+            </header>
+
+            <form id="ttsForm" autocomplete="off">
+                <div class="textarea-wrapper">
+                    <textarea
+                        id="textInput"
+                        placeholder="Try: 'I just got promoted!' or 'I'm really scared about tomorrow...'"
+                        required
+                        maxlength="500"
+                    ></textarea>
+                    <span class="char-count"><span id="charCount">0</span>/500</span>
+                </div>
+
+                <button type="submit" id="generateBtn">
+                    <span class="btn-content">
+                        <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        <span class="btn-text">Generate Emotional Voice</span>
+                    </span>
+                    <div class="loader" id="loader">
+                        <div class="loader-dot"></div>
+                        <div class="loader-dot"></div>
+                        <div class="loader-dot"></div>
+                    </div>
+                </button>
+            </form>
+
+            <section class="result-section hidden" id="resultSection">
+                <div class="result-divider">
+                    <span class="divider-line"></span>
+                    <span class="divider-text">ANALYSIS</span>
+                    <span class="divider-line"></span>
+                </div>
+
+                <div class="emotion-display">
+                    <span class="emotion-emoji" id="emotionEmoji">😐</span>
+                    <div class="emotion-info">
+                        <span class="emotion-label-small">Detected Emotion</span>
+                        <span class="emotion-name" id="emotionLabel">Neutral</span>
+                    </div>
+                    <div class="confidence-pill">
+                        <span class="confidence-value" id="confidenceValue">0%</span>
+                    </div>
+                </div>
+
+                <div class="scores-section">
+                    <h3 class="section-title">Emotion Spectrum</h3>
+                    <div class="scores-grid" id="scoresGrid"></div>
+                </div>
+
+                <div class="params-section">
+                    <h3 class="section-title">Vocal Modulation Applied</h3>
+                    <div class="params-display">
+                        <div class="param">
+                            <span class="param-icon">🎵</span>
+                            <span class="param-label">PITCH</span>
+                            <span class="param-value" id="paramPitch">0 st</span>
+                        </div>
+                        <div class="param">
+                            <span class="param-icon">🔊</span>
+                            <span class="param-label">VOLUME</span>
+                            <span class="param-value" id="paramGain">0 dB</span>
+                        </div>
+                        <div class="param">
+                            <span class="param-icon">⚡</span>
+                            <span class="param-label">RATE</span>
+                            <span class="param-value" id="paramRate">1.0x</span>
+                        </div>
+                    </div>
+                    <div class="intensity-bar-wrapper">
+                        <span class="intensity-label">Intensity</span>
+                        <div class="intensity-track">
+                            <div class="intensity-fill" id="intensityFill"></div>
+                        </div>
+                        <span class="intensity-percent" id="intensityPercent">0%</span>
+                    </div>
+                </div>
+
+                <div class="audio-section">
+                    <div class="waveform-visualizer" id="waveform">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div>
+                    </div>
+                    <audio id="audioPlayer" controls></audio>
+                </div>
+            </section>
+        </div>
+
+        <footer class="footer">
+            Built with FastAPI · Hugging Face Transformers · Google TTS · Pedalboard DSP
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
