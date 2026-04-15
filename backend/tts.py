@@ -28,46 +28,42 @@ def change_rate(audio, rate_factor):
         result[ch] = np.interp(new_indices, old_indices, audio[ch].astype(np.float32))
     return result
 
-class EmpathyTTS:
-    def __init__(self):
-        pass
+def compute_audio_parameters(emotion, confidence):
+    base_profile = VOICE_PROFILES.get(emotion, VOICE_PROFILES["neutral"])
+    
+    pitch = round(base_profile["pitch"] * confidence, 2)
+    gain = round(base_profile["gain"] * confidence, 2)
+    
+    rate = round(1.0 + (base_profile["rate"] - 1.0) * confidence, 3)
+    
+    return {"pitch_st": pitch, "gain_db": gain, "rate": rate}
 
-    def compute_params(self, emotion: str, confidence: float) -> dict:
-        base = VOICE_PROFILES.get(emotion, VOICE_PROFILES["neutral"])
-        scaled_pitch = round(base["pitch"] * confidence, 2)
-        scaled_gain = round(base["gain"] * confidence, 2)
-        scaled_rate = round(1.0 + (base["rate"] - 1.0) * confidence, 3)
-        return {"pitch_st": scaled_pitch, "gain_db": scaled_gain, "rate": scaled_rate}
+def synthesize_audio(text, emotion, confidence):
+    params = compute_audio_parameters(emotion, confidence)
+    
+    temp_file = f"temp_{uuid.uuid4().hex}.mp3"
+    out_file = f"output_{uuid.uuid4().hex}.wav"
 
-    async def synthesize(self, text: str, emotion: str, confidence: float) -> tuple:
-        params = self.compute_params(emotion, confidence)
-        temp_file = f"temp_{uuid.uuid4().hex}.mp3"
-        out_file = f"output_{uuid.uuid4().hex}.wav"
+    tts = gTTS(text=text, lang="en", slow=False)
+    tts.save(temp_file)
 
-        def generate_base():
-            tts = gTTS(text=text, lang="en", slow=False)
-            tts.save(temp_file)
+    board = Pedalboard([
+        PitchShift(semitones=params["pitch_st"]),
+        Gain(gain_db=params["gain_db"])
+    ])
 
-        await asyncio.to_thread(generate_base)
+    with AudioFile(temp_file) as f:
+        audio_data = f.read(f.frames)
+        sample_rate = f.samplerate
 
-        board = Pedalboard([
-            PitchShift(semitones=params["pitch_st"]),
-            Gain(gain_db=params["gain_db"])
-        ])
+    effected_audio = board(audio_data, sample_rate)
+    
+    effected_audio = change_rate(effected_audio, params["rate"])
 
-        with AudioFile(temp_file) as f:
-            audio = f.read(f.frames)
-            samplerate = f.samplerate
+    with AudioFile(out_file, 'w', sample_rate, effected_audio.shape[0]) as f:
+        f.write(effected_audio)
 
-        effected = board(audio, samplerate)
-        effected = change_rate(effected, params["rate"])
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
 
-        with AudioFile(out_file, 'w', samplerate, effected.shape[0]) as f:
-            f.write(effected)
-
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-
-        return out_file, params
-
-tts_engine = EmpathyTTS()
+    return out_file, params
