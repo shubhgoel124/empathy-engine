@@ -4,8 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 import base64
-from emotion import detect
-from tts import synthesize_audio
+from emotion import detector
+from tts import tts_engine
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="The Empathy Engine")
@@ -20,13 +20,15 @@ app.add_middleware(
 
 class SynthesizeRequest(BaseModel):
     text: str
+    voice: str = "auto"
+    gender: str = "female"
+    multiplier: float = 1.0
 
 @app.post("/api/synthesize")
-def synthesize_api(req: SynthesizeRequest):
-    result = detect(req.text)
-    
-    audio_path, params = synthesize_audio(
-        req.text, result["emotion"], result["confidence"]
+async def synthesize_api(req: SynthesizeRequest):
+    result = detector.detect(req.text)
+    audio_path, params = await tts_engine.synthesize(
+        req.text, result["emotion"], result["confidence"], req.voice, req.gender, req.multiplier
     )
 
     with open(audio_path, "rb") as f:

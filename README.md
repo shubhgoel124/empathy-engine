@@ -15,11 +15,14 @@ The Empathy Engine bridges the gap between text-based sentiment and expressive, 
 | Feature | Description |
 |---|---|
 | **Granular Emotion Detection** | Classifies text into 7 emotions: Joy, Sadness, Anger, Fear, Surprise, Disgust, Neutral |
+| **Auto-Emotion Accent Sync** | Dynamically changes the speaker's accent (AU, UK, IN, US, NG) based on text emotion |
+| **Acoustic Gender Profiles** | Simulates Female, Male, and Child voices via DSP pitch-flooring technology |
+| **Manual Emotion Overdrive** | UI slider to manually amplify or dampen the intensity of vocal modulations (0.5x - 3.0x) |
+| **Cinematic DSP Ambience** | Injects Reverb, Chorus, and Phaser chains based on the emotional context |
 | **3-Parameter Vocal Modulation** | Dynamically adjusts Pitch (semitones), Volume (dB), and Rate (speed multiplier) |
-| **Intensity Scaling** | Modulation scales with classifier confidence — stronger emotions produce more dramatic vocal changes |
-| **Full Emotion Spectrum** | Displays confidence scores for all 7 emotions, not just the top prediction |
-| **Web Interface** | Premium glassmorphic UI with live particle effects, animated emotion bars, and embedded audio player |
-| **Zero API Keys Required** | Runs entirely on open-source models and free APIs — no paid subscriptions needed |
+| **Intensity Scaling** | Modulation scales with classifier confidence — stronger emotions produce dramatic changes |
+| **WAV Audio Export** | One-click button to download the synthesized emotional audio locally |
+| **Zero API Keys Required** | Runs entirely on open-source models and free APIs |
 
 ---
 
@@ -35,17 +38,19 @@ The Empathy Engine bridges the gap between text-based sentiment and expressive, 
 ┌─────────────────────────────────────────────────────┐
 │                FastAPI Backend                        │
 │                                                      │
-│  ┌──────────────────┐    ┌───────────────────────┐  │
+││  ┌──────────────────┐    ┌───────────────────────┐  │
 │  │ Emotion Detector │    │    Empathy TTS Engine  │  │
 │  │                  │    │                        │  │
-│  │  HuggingFace     │───▶│  1. Google TTS (base)  │  │
-│  │  DistilRoBERTa   │    │  2. PitchShift (DSP)   │  │
-│  │                  │    │  3. Gain (DSP)          │  │
-│  │  Returns:        │    │  4. Rate Change (NumPy) │  │
-│  │  - emotion       │    │                        │  │
-│  │  - confidence    │    │  Returns: .wav audio    │  │
-│  │  - all 7 scores  │    └───────────────────────┘  │
-│  └──────────────────┘                                │
+│  │  HuggingFace     │───▶│  1. Accent Mapping     │  │
+│  │  DistilRoBERTa   │    │  2. Gender Pitch Sync  │  │
+│  │                  │    │  3. Multiplier Scaling │  │
+│  │  Returns:        │    │  4. Pedalboard FX      │  │
+│  │  - emotion       │    │     (Reverb, Chorus)   │  │
+│  │  - confidence    │    │  5. Rate Change (NumPy) │  │
+│  │  - all 7 scores  │    │                        │  │
+│  │                  │    │  Returns: .wav audio    │  │
+│  └──────────────────┘    └───────────────────────┘  │
+└─────────────────────────────────────────────────────┘
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -55,15 +60,21 @@ The Empathy Engine bridges the gap between text-based sentiment and expressive, 
 
 The core design decision: each emotion maps to a **base profile** of vocal parameters. These base values are then **scaled by the classifier's confidence score** (0.0–1.0), implementing intensity scaling.
 
-| Emotion | Base Pitch | Base Volume | Base Rate | Rationale |
-|---------|-----------|-------------|-----------|-----------|
-| **Joy** | +3.0 st | +2.0 dB | 1.18x | Higher pitch and faster pace convey excitement |
-| **Sadness** | -4.0 st | -3.0 dB | 0.80x | Lower, quieter, and slower reflects grief |
-| **Anger** | -2.0 st | +5.0 dB | 1.25x | Loud, fast, and deep pitch signals aggression |
-| **Fear** | +4.0 st | -1.5 dB | 1.22x | High-pitched and fast, but quieter (whisper-like) |
-| **Surprise** | +5.0 st | +2.5 dB | 1.12x | Dramatic pitch spike conveys shock |
-| **Disgust** | -3.0 st | +0.5 dB | 0.88x | Low and slow signals displeasure |
-| **Neutral** | 0.0 st | 0.0 dB | 1.00x | No modulation for neutral delivery |
+| Emotion | Base Pitch | Base Volume | Base Rate | Auto-Accent | Cinematic FX |
+|---------|-----------|-------------|-----------|-------------|--------------|
+| **Joy** | +3.0 st | +2.0 dB | 1.18x | Australian | Bright Chorus |
+| **Sadness** | -4.0 st | -3.0 dB | 0.80x | Indian | Heavy Reverb |
+| **Anger** | -2.0 st | +5.0 dB | 1.25x | British | Sharp Phaser |
+| **Fear** | +4.0 st | -1.5 dB | 1.22x | Nigerian | Dark Reverb |
+| **Surprise** | +5.0 st | +2.5 dB | 1.12x | Australian | Bright Chorus |
+| **Disgust** | -3.0 st | +0.5 dB | 0.88x | US English | None |
+| **Neutral** | 0.0 st | 0.0 dB | 1.00x | US English | None |
+
+### Vocal Profiles (Gender)
+Gender simulation is achieved via mathematical pitch-flooring offsets applied before emotional scaling:
+- **Female Profile**: 0.0 st offset (Baseline)
+- **Male Profile**: -6.0 st offset (Deep resonance)
+- **Child Profile**: +3.0 st offset (High-frequency resonance)
 
 ### Intensity Scaling Formula
 
@@ -83,9 +94,10 @@ actual_rate  = 1.0 + (base_rate - 1.0) × confidence
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | Backend Framework | **FastAPI** | Async REST API server |
-| Emotion Detection | **HuggingFace Transformers** (`j-hartmann/emotion-english-distilroberta-base`) | 7-class emotion classification using DistilRoBERTa |
-| Base TTS | **gTTS** (Google Text-to-Speech) | Generates clean baseline speech audio |
-| Audio DSP | **Pedalboard** (by Spotify) | Professional-grade pitch shifting and gain adjustment |
+| Emotion Detection | **HuggingFace Transformers** | 7-class emotion classification using DistilRoBERTa |
+| Language Detection | **langdetect** | Automatically identifies text language for "Auto" mode |
+| Base TTS | **gTTS** | Generates clean baseline speech audio with regional TLDs |
+| Audio DSP | **Pedalboard** (by Spotify) | Pitch shifting, Gain, Reverb, Chorus, and Phaser effects |
 | Rate Modulation | **NumPy** | Sample-level interpolation for speech rate manipulation |
 | Frontend | **Vanilla HTML/CSS/JS** | Glassmorphic UI with particle effects and animated charts |
 

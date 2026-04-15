@@ -17,6 +17,9 @@ const scoresGrid = document.getElementById('scoresGrid');
 const intensityFill = document.getElementById('intensityFill');
 const intensityPercent = document.getElementById('intensityPercent');
 const emojiExplosion = document.getElementById('emojiExplosion');
+const intensitySlider = document.getElementById('intensitySlider');
+const sliderValueDisplay = document.getElementById('sliderValueDisplay');
+const downloadBtn = document.getElementById('downloadBtn');
 
 const EMOTION_CONFIG = {
     joy:      { emoji: '😄', emojis: ['🎉', '✨', '🥳', '💛', '🌟', '😁'], color: '#fbbf24' },
@@ -30,6 +33,10 @@ const EMOTION_CONFIG = {
 
 textInput.addEventListener('input', () => {
     charCount.textContent = textInput.value.length;
+});
+
+intensitySlider.addEventListener('input', () => {
+    sliderValueDisplay.textContent = parseFloat(intensitySlider.value).toFixed(1) + 'x';
 });
 
 function spawnEmojis(emotion) {
@@ -77,20 +84,91 @@ function renderScores(allScores, topEmotion) {
     });
 }
 
+function initParticles() {
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let w, h;
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    for (let i = 0; i < 50; i++) {
+        particles.push({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            r: Math.random() * 1.5 + 0.5,
+            opacity: Math.random() * 0.3 + 0.05
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        const style = getComputedStyle(document.body);
+        const rgb = style.getPropertyValue('--accent-rgb').trim() || '129, 140, 248';
+
+        particles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0) p.x = w;
+            if (p.x > w) p.x = 0;
+            if (p.y < 0) p.y = h;
+            if (p.y > h) p.y = 0;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${rgb}, ${p.opacity})`;
+            ctx.fill();
+        });
+
+        particles.forEach((a, i) => {
+            particles.slice(i + 1).forEach(b => {
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 120) {
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.strokeStyle = `rgba(${rgb}, ${0.03 * (1 - dist / 120)})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            });
+        });
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+}
+
+initParticles();
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = textInput.value.trim();
+    const voice = document.getElementById('voiceSelect').value;
+    const gender = document.getElementById('genderSelect').value;
+    const multiplier = parseFloat(intensitySlider.value);
+    
     if (!text) return;
 
     generateBtn.disabled = true;
     btnContent.style.display = 'none';
     loader.style.display = 'flex';
+    downloadBtn.classList.add('hidden');
 
     try {
         const response = await fetch('/api/synthesize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, voice, gender, multiplier })
         });
 
         if (!response.ok) throw new Error('Synthesis failed');
@@ -115,7 +193,12 @@ form.addEventListener('submit', async (e) => {
 
         const audioBytes = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0));
         const audioBlob = new Blob([audioBytes], { type: 'audio/wav' });
-        audioPlayer.src = URL.createObjectURL(audioBlob);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audioPlayer.src = audioUrl;
+        downloadBtn.href = audioUrl;
+        downloadBtn.classList.remove('hidden');
+        
         resultSection.classList.remove('hidden');
 
         spawnEmojis(data.emotion);

@@ -3,26 +3,24 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-classifier_pipeline = pipeline(
-    "text-classification",
-    model="j-hartmann/emotion-english-distilroberta-base",
-    return_all_scores=True
-)
+class EmotionDetector:
+    def __init__(self):
+        self.classifier = pipeline(
+            "text-classification",
+            model="j-hartmann/emotion-english-distilroberta-base",
+            return_all_scores=True
+        )
 
-def detect(text):
-    results = classifier_pipeline(text)[0]
-    
-    sorted_results = sorted(results, key=lambda x: x["score"], reverse=True)
-    top_emotion = sorted_results[0]
-    
-    all_scores_dict = {}
-    for item in sorted_results:
-        label = item["label"]
-        score = item["score"]
-        all_scores_dict[label] = round(score, 4)
+    def detect(self, text: str) -> dict:
+        results = self.classifier(text)[0]
+        sorted_results = sorted(results, key=lambda x: x["score"], reverse=True)
+        top = sorted_results[0]
+        all_scores = {r["label"]: round(r["score"], 4) for r in sorted_results}
 
-    return {
-        "emotion": top_emotion["label"],
-        "confidence": round(top_emotion["score"], 4),
-        "all_scores": all_scores_dict
-    }
+        return {
+            "emotion": top["label"],
+            "confidence": round(top["score"], 4),
+            "all_scores": all_scores
+        }
+
+detector = EmotionDetector()

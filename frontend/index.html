@@ -12,6 +12,7 @@
 </head>
 <body>
 
+    <canvas id="particleCanvas"></canvas>
     <div class="gradient-orb orb-1"></div>
     <div class="gradient-orb orb-2"></div>
     <div class="gradient-orb orb-3"></div>
@@ -40,6 +41,37 @@
                         maxlength="500"
                     ></textarea>
                     <span class="char-count"><span id="charCount">0</span>/500</span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="voice-selector-wrapper half-width">
+                        <label for="voiceSelect" class="voice-label">Vocal Profile</label>
+                        <select id="voiceSelect" class="voice-select">
+                            <option value="auto-emotion" selected>🤖 Auto-Emotion Sync</option>
+                            <!-- <option value="auto">🌍 Auto-Detect Language</option> -->
+                            <option value="us">🇺🇸 US English</option>
+                            <option value="uk">🇬🇧 UK English</option>
+                            <option value="in">🇮🇳 Indian English</option>
+                            <option value="au">🇦🇺 Australian English</option>
+                            <option value="ng">🇳🇬 Nigerian English</option>
+                        </select>
+                    </div>
+
+                    <div class="voice-selector-wrapper half-width">
+                        <label for="genderSelect" class="voice-label">Base Gender</label>
+                        <select id="genderSelect" class="voice-select">
+                            <option value="female" selected>👱‍♀️ Female Voice</option>
+                            <option value="male">🧔‍♂️ Male Voice</option>
+                            <option value="child">🧒 Child Voice</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overdrive-wrapper">
+                    <div class="overdrive-header">
+                        <label for="intensitySlider" class="voice-label">Manual Emotion Overdrive</label>
+                        <span id="sliderValueDisplay" class="slider-value">1.0x</span>
+                    </div>
+                    <input type="range" id="intensitySlider" class="intensity-slider" min="0.5" max="3.0" step="0.1" value="1.0">
                 </div>
 
                 <button type="submit" id="generateBtn">
@@ -121,7 +153,12 @@
                         <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                         <div class="bar"></div><div class="bar"></div>
                     </div>
-                    <audio id="audioPlayer" controls></audio>
+                    <div class="audio-controls-row">
+                        <audio id="audioPlayer" controls></audio>
+                        <a id="downloadBtn" href="#" class="download-btn hidden" download="empathy_emotion_audio.wav">
+                            <span class="btn-icon">💾</span> Download WAV
+                        </a>
+                    </div>
                 </div>
             </section>
         </div>

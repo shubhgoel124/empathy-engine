@@ -7,3 +7,4 @@ pedalboard>=0.9.15
 python-multipart>=0.0.9
 pydantic>=2.5.3
 numpy>=1.26.0
+langdetect>=1.0.9

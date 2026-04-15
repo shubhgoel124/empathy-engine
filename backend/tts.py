@@ -3,9 +3,10 @@ import uuid
 import os
 import asyncio
 import numpy as np
-from pedalboard import Pedalboard, PitchShift, Gain
+from pedalboard import Pedalboard, PitchShift, Gain, Reverb, Chorus, Phaser
 from pedalboard.io import AudioFile
-
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
 VOICE_PROFILES = {
     "joy":      {"pitch": 3.0,  "gain": 2.0,  "rate": 1.18},
     "sadness":  {"pitch": -4.0, "gain": -3.0, "rate": 0.80},
@@ -28,42 +29,99 @@ def change_rate(audio, rate_factor):
         result[ch] = np.interp(new_indices, old_indices, audio[ch].astype(np.float32))
     return result
 
-def compute_audio_parameters(emotion, confidence):
-    base_profile = VOICE_PROFILES.get(emotion, VOICE_PROFILES["neutral"])
-    
-    pitch = round(base_profile["pitch"] * confidence, 2)
-    gain = round(base_profile["gain"] * confidence, 2)
-    
-    rate = round(1.0 + (base_profile["rate"] - 1.0) * confidence, 3)
-    
-    return {"pitch_st": pitch, "gain_db": gain, "rate": rate}
+class EmpathyTTS:
+    def __init__(self):
+        pass
 
-def synthesize_audio(text, emotion, confidence):
-    params = compute_audio_parameters(emotion, confidence)
-    
-    temp_file = f"temp_{uuid.uuid4().hex}.mp3"
-    out_file = f"output_{uuid.uuid4().hex}.wav"
+    def compute_params(self, emotion: str, confidence: float, gender: str = "female", multiplier: float = 1.0) -> dict:
+        base = VOICE_PROFILES.get(emotion, VOICE_PROFILES["neutral"])
+        
+        gender_offset = 0.0
+        if gender == "male":
+            gender_offset = -6.0
+        elif gender == "child":
+            gender_offset = 3.0
+            
+        scaled_pitch = round((base["pitch"] * confidence * multiplier) + gender_offset, 2)
+        scaled_gain = round(base["gain"] * confidence * multiplier, 2)
+        scaled_rate = round(1.0 + (base["rate"] - 1.0) * confidence * multiplier, 3)
+        return {"pitch_st": scaled_pitch, "gain_db": scaled_gain, "rate": scaled_rate}
 
-    tts = gTTS(text=text, lang="en", slow=False)
-    tts.save(temp_file)
+    async def synthesize(self, text: str, emotion: str, confidence: float, voice: str = "auto", gender: str = "female", multiplier: float = 1.0) -> tuple:
+        params = self.compute_params(emotion, confidence, gender, multiplier)
+        temp_file = f"temp_{uuid.uuid4().hex}.mp3"
+        out_file = f"output_{uuid.uuid4().hex}.wav"
 
-    board = Pedalboard([
-        PitchShift(semitones=params["pitch_st"]),
-        Gain(gain_db=params["gain_db"])
-    ])
+        def generate_base():
+            tts_lang = "en"
+            tts_tld = "com"
 
-    with AudioFile(temp_file) as f:
-        audio_data = f.read(f.frames)
-        sample_rate = f.samplerate
+            if voice == "us":
+                tts_lang, tts_tld = "en", "com"
+            elif voice == "uk":
+                tts_lang, tts_tld = "en", "co.uk"
+            elif voice == "in":
+                tts_lang, tts_tld = "en", "co.in"
+            elif voice == "au":
+                tts_lang, tts_tld = "en", "com.au"
+            elif voice == "ng":
+                tts_lang, tts_tld = "en", "com.ng"
+            elif voice == "auto-emotion":
+                tts_lang = "en"
+                if emotion in ["joy", "surprise"]:
+                    tts_tld = "com.au"
+                elif emotion == "anger":
+                    tts_tld = "co.uk"
+                elif emotion == "sadness":
+                    tts_tld = "co.in"
+                elif emotion == "fear":
+                    tts_tld = "com.ng"
+                else:
+                    tts_tld = "com"
+            elif voice == "auto":
+                try:
+                    detected = detect(text)
+                    tts_lang = detected
+                except LangDetectException:
+                    tts_lang = "en"
 
-    effected_audio = board(audio_data, sample_rate)
-    
-    effected_audio = change_rate(effected_audio, params["rate"])
+            
+            try:
+                tts = gTTS(text=text, lang=tts_lang, tld=tts_tld, slow=False)
+            except ValueError:
+                tts = gTTS(text=text, lang="en", tld="com", slow=False)
 
-    with AudioFile(out_file, 'w', sample_rate, effected_audio.shape[0]) as f:
-        f.write(effected_audio)
+            tts.save(temp_file)
 
-    if os.path.exists(temp_file):
-        os.remove(temp_file)
+        await asyncio.to_thread(generate_base)
 
-    return out_file, params
+        effects = [
+            PitchShift(semitones=params["pitch_st"]),
+            Gain(gain_db=params["gain_db"])
+        ]
+        
+        if emotion in ["fear", "sadness"]:
+            effects.append(Reverb(room_size=0.8, damping=0.9))
+        elif emotion == "anger":
+            effects.append(Phaser(rate_hz=2.0, depth=0.6))
+        elif emotion in ["joy", "surprise"]:
+            effects.append(Chorus())
+
+        board = Pedalboard(effects)
+
+        with AudioFile(temp_file) as f:
+            audio = f.read(f.frames)
+            samplerate = f.samplerate
+
+        effected = board(audio, samplerate)
+        effected = change_rate(effected, params["rate"])
+
+        with AudioFile(out_file, 'w', samplerate, effected.shape[0]) as f:
+            f.write(effected)
+
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
+        return out_file, params
+
+tts_engine = EmpathyTTS()
