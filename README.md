@@ -1,3 +1,7 @@
+Live Link: [https://shubhgoel124-empathy-engine-v2.hf.space/](url)
+
+If this link dosent work from here copy it and paste it to your browser or you can click on the link in the about section
+
 # 🧠 The Empathy Engine
 
 **AI-driven Text-to-Speech that dynamically modulates vocal characteristics based on detected emotion.**
